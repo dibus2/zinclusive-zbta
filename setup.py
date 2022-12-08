@@ -14,26 +14,24 @@ if os.path.isfile(requirementPath):
     with open(requirementPath) as f:
         install_requires = f.read().splitlines()
 
-fileversion = thelibFolder + "/gdsbbta/__init__.py"
+fileversion = thelibFolder + "/zbta/__init__.py"
 with open(fileversion) as f:
     versionnumber = f.read()
     versionnumber = versionnumber[versionnumber.find("'")+1:-2]
 
-setup(name="gdsbbta",
+setup(name="zbta",
       version=versionnumber,
-      description="python GDS Bank Attributes",
+      description="Zinclusive BT Attributes",
       long_description=readme(),
       classifiers=['Development Status:: Production',
                    'Programming Language:: Python::3.8',
                    'License:: None'],
       keywords='',
-      author='gdslink',
-      author_email='florian.lyonnet@gdslink.com',
+      author='zinclusive',
+      author_email='florian@dataatc.com',
       install_requires=install_requires,
       packages=find_packages(),
       package_data={
-          'gdsbbta.engine.examples': ["*"],
-          'gdsbbta.merger': ["dictionaries/*"],
-          'gdsbbta.models': ["short_term_subprime/v1.0.0/*"]
+          #'gdsbbta.models': ["short_term_subprime/v1.0.0/*"]
       }
       )
