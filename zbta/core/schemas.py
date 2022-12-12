@@ -94,3 +94,38 @@ __API_SCHEMA__ = {
         }
     }
 }
+
+__ACCOUNT_SCHEMA__ = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["account_info", "banktrans"],
+    "properties": {
+        "account_info": {
+            "type": "object",
+            "required": ["AcctBal"],
+            "properties": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "required": ["CurrAmt"],
+                    "properties": {
+                        "type": "object",
+                        "required": ["Amt", "CurCode"],
+                        "properties": {
+                            "Amt": {
+                                "type": "float",
+                                "description": "the current balance amt",
+                            },
+                            "CurCode": {
+                                "type": "string",
+                                "enum": ["USD"]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "banktrans": {}
+    }
+}

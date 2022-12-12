@@ -1,14 +1,24 @@
-from jsonschema import ValidationError, validate
 from typing import Dict, Tuple, Any
 from collections import deque
 import re
+from jsonschema import ValidationError, validate
+
 
 class APIError(Exception):
+    """The error of the API.
+
+    Parameters
+    ----------
+    Exception : general exception error
+        the general exception.
+    """
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
 
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        return super().__call__(*args, **kwds)
+    #def __call__(self, *args: Any, **kwds: Any) -> Any:
+    #    return super().__call__(*args, **kwds)
+
+
 
 def _get_validation_bad_key(path: deque, message: str) -> str:
     if path:
@@ -29,11 +39,11 @@ def validate_schema(obj: Dict, schema: Dict, schema_name: str) -> Tuple[bool, st
     """
     try:
         validate(obj, schema)
-    except ValidationError as e:
+    except ValidationError as err:
         is_valid = False
-        message = e.message
-        bad_key = _get_validation_bad_key(e.path, message)
-        validator = e.validator
+        message = err.message
+        bad_key = _get_validation_bad_key(err.path, message)
+        validator = err.validator
         final_error_message = (
             f"There was an error while validating {schema_name} schema. "
             f"Conflicting key: `{bad_key}`. "
