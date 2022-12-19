@@ -98,34 +98,130 @@ __API_SCHEMA__ = {
 __ACCOUNT_SCHEMA__ = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
-    "required": ["account_info", "banktrans"],
+    "required": ["accountinfo", "banktrans"],
     "properties": {
         "account_info": {
             "type": "object",
-            "required": ["AcctBal"],
+            "required": ["AcctBal", "FIAcctInfo"],
             "properties": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "required": ["CurrAmt"],
-                    "properties": {
+                "AcctBal": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
                         "type": "object",
-                        "required": ["Amt", "CurCode"],
+                        "required": ["CurrAmt"],
                         "properties": {
-                            "Amt": {
-                                "type": "float",
-                                "description": "the current balance amt",
-                            },
-                            "CurCode": {
-                                "type": "string",
-                                "enum": ["USD"]
+                            "CurrAmt": {
+                                "type": "object",
+                                "required": ["Amt", "CurCode"],
+                                "properties": {
+                                    "Amt": {
+                                        "type": "number",
+                                        "description": "the current balance amt",
+                                    },
+                                    "CurCode": {
+                                        "type": "string",
+                                        "enum": ["USD"]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "FIAcctInfo": {
+                    "type": "object",
+                    "required": ["FIAcctId"],
+                    "properties": {
+                        "FIAcctId": {
+                            "type": "object",
+                            "required": ["AcctType", "AcctId"],
+                            "properties": {
+                                "AcctType": {
+                                    "type": "string",
+                                    "enum": ["DDA", "CCA"],
+                                    "description": "the account type."
+                                },
+                                "AcctId": {
+                                    "type": "string",
+                                    "description": "this is the account number."
+                                }
+                            }
+                        }
+                    }
+                }
+            
+            }
+        },
+        "banktrans": {
+            "type": "object",
+            "required": ["result"],
+            "properties": {
+                "result": {
+                    "type": "object",
+                    "required": ["DepAcctTrnInqRs"],
+                    "properties": {
+                        "DepAcctTrnInqRs": {
+                            "required": ["DepAcctTrns"],
+                            "type": "object",
+                            "properties": {
+                                "DepAcctTrns": {
+                                    "type": "object",
+                                    "required": ["BankAcctTrnRec"],
+                                    "properties": {
+                                        "BankAcctTrnRec": {
+                                            "type": "array",
+                                            "minItems": 1,
+                                            "items": {
+                                                "type": "object",
+                                                "required": ["TrnID", "TrnType", "PostedDt", "Memo", "Category", "CurAmt"],
+                                                "properties": {
+                                                    "TrnID": {
+                                                        "type": "number",
+                                                        "description": "the transaction id."
+                                                    },
+                                                    "TrnType": {
+                                                        "type": "string",
+                                                        "description": "the transaction type",
+                                                        "enum": ["Credit", "Debit"]
+                                                    },
+                                                    "PostedDt": {
+                                                        "description": "the date the transaction was posted.",
+                                                        "type": "string"
+                                                    },
+                                                    "Memo": {
+                                                        "description": "the transaction description.",
+                                                        "type": "string"
+                                                    },
+                                                    "Category": {
+                                                        "type": "string",
+                                                        "description": "the category as provided by fiserv."
+                                                    },
+                                                    "CurAmt": {
+                                                        "type": "object",
+                                                        "required": ["Amt", "CurCode"],
+                                                        "properties": {
+                                                            "Amt": {
+                                                                "type": "number",
+                                                                "description": "the transaction amount"
+                                                            },
+                                                            "CurCode": {
+                                                                "type": "string",
+                                                                "enum": ["USD"],
+                                                                "description": "the currency of the transaction."
+                                                            }
+                                                        }
+                                                    }
+                                                    
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-        },
-        "banktrans": {}
+        }
     }
 }

@@ -1,7 +1,7 @@
 from typing import Dict, Tuple, Any
 from collections import deque
 import re
-from jsonschema import ValidationError, validate
+from jsonschema import ValidationError, validate, SchemaError
 
 
 class APIError(Exception):
@@ -50,6 +50,10 @@ def validate_schema(obj: Dict, schema: Dict, schema_name: str) -> Tuple[bool, st
             f"Conflicting validator: `{validator}`. "
             f"Error message: {message}"
         )
+    except SchemaError as err:
+        is_valid = False
+        message = err.message
+        final_error_message = f"SchemaError in the payload: `{message}`"
     else:  # if valid schema
         is_valid = True
         final_error_message = None

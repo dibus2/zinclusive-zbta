@@ -4,6 +4,7 @@ from zbta.core.status import Statuses
 from typing import Dict
 from zbta.core.schemas import __API_SCHEMA__
 from zbta.core.common import validate_schema, APIError
+from zbta.parsers.parser import Parser
 import logging
 
 
@@ -76,9 +77,10 @@ class APIConnector:
         else:
             # 1. create the parser object
             parser = Parser(self._payload["request"])
-            
-            # 2. parse 
+            # 2. parse
+            parser.parse()
             # 3. generate triggers
+            print("HERE")
             # 4. generate attributes
 
 
