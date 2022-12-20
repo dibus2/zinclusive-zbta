@@ -15,9 +15,27 @@ class APIError(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
 
-    #def __call__(self, *args: Any, **kwds: Any) -> Any:
-    #    return super().__call__(*args, **kwds)
+class NoValidAccountError(Exception):
+    """No Valid account found.
 
+    Parameters
+    ----------
+    Exception : general exception error
+        the general exception.
+    """
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
+class NoTransactionError(Exception):
+    """No transaction error.
+
+    Parameters
+    ----------
+    Exception : general exception error
+        the general exception.
+    """
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
 
 
 def _get_validation_bad_key(path: deque, message: str) -> str:

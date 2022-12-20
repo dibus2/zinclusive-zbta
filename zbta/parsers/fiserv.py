@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, List
-from zbta.core.common import validate_schema, APIError
+from zbta.core.common import validate_schema, APIError, NoTransactionError, NoValidAccountError
 from zbta.core.schemas import __ACCOUNT_SCHEMA__
 import pandas as pd
 
@@ -199,7 +199,7 @@ class AccountFiserv(AccountAbstract):
         self._account_number_orig = self._payload['accountinfo'][
             'FIAcctInfo']['FIAcctId']['AcctId']
 
-    def _extract_transactions(self) -> None:
+    def _get_trans(self) -> None:
         """Extracts the transactions from the raw report.
         """
         self._transactions = pd.DataFrame(self._payload["banktrans"][
@@ -230,6 +230,57 @@ class AccountFiserv(AccountAbstract):
 
         self._nb_transactions = self._transactions.shape[0]
 
+    def _compute_oldest_newest_dates(self):
+        """Obtain oldest / newest balance date
+        """
+        self._oldest_balance_date = pd.to_datetime(self._payload[
+            "banktrans"]["result"]["DepAcctTrnInqRs"]["DepAcctTrns"][
+            "SelectionCriterion"]["SelRangeDt"]["StartDt"])
+        self._most_recent_balance_date = pd.to_datetime(self._payload[
+            "banktrans"]["result"]["DepAcctTrnInqRs"]["DepAcctTrns"][
+            "SelectionCriterion"]["SelRangeDt"]["EndDt"])
+
+        if self._oldest_balance_date > self._most_recent_balance_date:
+            intermediate = self._oldest_balance_date
+            self._oldest_balance_date = self._most_recent_balance_date
+            self._most_recent_balance_date = intermediate
+
+    def _extract_transactions(self) -> None:
+
+        # Get transactions
+        self._get_trans()
+        self._compute_oldest_newest_dates()
+
+        self._nb_transactions = self._transactions.shape[0]
+
+        # extract the data frame of transactions
+        if self._nb_transactions == 0:
+            self._transactions = pd.DataFrame(columns=[
+                'date', 'amount', 'status', 'description', 'balance'])
+
+        else:
+            self._transactions['status'] = (
+                self._transactions['status'].str.lower().apply(
+                    lambda x: 'pending' if "pending" in x else 'posted'))
+
+            # removing pending trans
+            self._transactions = self._transactions.loc[
+                self._transactions.status != "pending"]
+
+            self._nb_transactions = self._transactions.shape[0]
+            self._transactions.loc[:, "date"] = pd.to_datetime(
+                self._transactions["date"], format="%Y-%m-%d")
+            self._transactions = self._transactions.sort_values(
+                by=["date", "id"], ascending=[True, True])
+
+            self._transactions.loc[:, "amount_collected"] = 0
+            self._transactions.loc[:, "amount_collected"] = (
+                    self._transactions["amount"].cumsum())
+            starting_amount = self._current_balance + self._transactions[
+                "amount"].sum()
+            self._transactions.loc[:, "balance"] = (
+                -self._transactions["amount_collected"] + starting_amount)
+
 
 class ReportFiserv:
     """Represents a full report.
@@ -251,16 +302,22 @@ class ReportFiserv:
         self._nb_accounts_rep = len(self._payload['bt_data']['data'])
         for icc, acc in enumerate(self._payload['bt_data']['data']):
             if acc['accountinfo']['FIAcctInfo']['FIAcctId']['AcctType'] not in self.__INVALID_ACCT_TYPE__:
-                self._accts.append(self._acct_ins(acc))
-                self._nb_transactions[icc] = self._accts[-1].nb_transactions
+                _acc = self._acct_ins(acc)
+                if _acc.nb_transactions != 0:
+                    self._accts.append(_acc)
+                    self._nb_transactions[icc] = self._accts[-1].nb_transactions
         if len(self._accts) != self._nb_accounts:
-            logging.debug("some accounts were ignored because invalid type.")
+            logging.debug("some accounts were ignored because invalid type or no transactions found.")
         self._nb_accounts = len(self._accts)
         self._nb_transactions_tot = sum(
             [el for el in list(self._nb_transactions.values()) if el is not None
              ]
         )
+        if self._nb_accounts == 0:
+            raise NoValidAccountError("No valid account found to calculate attributes")
 
+        if self._nb_transactions_tot == 0:
+            raise NoTransactionError("No transaction Found.")
 
     @property
     def accounts(self) -> List[AccountFiserv]:

@@ -166,7 +166,7 @@ __ACCOUNT_SCHEMA__ = {
                             "properties": {
                                 "DepAcctTrns": {
                                     "type": "object",
-                                    "required": ["BankAcctTrnRec"],
+                                    "required": ["BankAcctTrnRec", "SelectionCriterion"],
                                     "properties": {
                                         "BankAcctTrnRec": {
                                             "type": "array",
@@ -212,6 +212,27 @@ __ACCOUNT_SCHEMA__ = {
                                                         }
                                                     }
                                                     
+                                                }
+                                            }
+                                        },
+                                        "SelectionCriterion": {
+                                            "type": "object",
+                                            "required": ["SelRangeDt"],
+                                            "properties": {
+                                                "SelRangeDt": {
+                                                    "type": "object",
+                                                    "required": ["StartDt", "EndDt"],
+                                                    "properties": {
+                                                        "StartDt": {
+                                                            "description": "the oldest balance",
+                                                            "type": "string"
+                                                        },
+                                                        "EndDt": {
+                                                            "description": "the most recent balance",
+                                                            "type": "string"
+                                                        }
+                                                        
+                                                    }
                                                 }
                                             }
                                         }
