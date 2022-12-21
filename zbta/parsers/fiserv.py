@@ -1,4 +1,6 @@
 import logging
+import warnings
+import numpy as np
 from typing import Dict, List
 from zbta.core.common import validate_schema, APIError, NoTransactionError, NoValidAccountError
 from zbta.core.schemas import __ACCOUNT_SCHEMA__
@@ -214,13 +216,13 @@ class AccountFiserv(AccountAbstract):
 
         # make sure signs are ok
         self._transactions.loc[
-            self._transactions.TrnType.str.lower() == "debit", "amount"] = (
+            self._transactions.TrnType.str.lower() == "debit", "amount"] = -1*(
             self._transactions.loc[
                 self._transactions.TrnType.str.lower() == "debit",
                 "amount"].abs()
         )
         self._transactions.loc[
-            self._transactions.TrnType.str.lower() == "credit", "amount"] = -(
+            self._transactions.TrnType.str.lower() == "credit", "amount"] = (
             self._transactions.loc[
                 self._transactions.TrnType.str.lower() == "credit",
                 "amount"].abs()
@@ -268,18 +270,34 @@ class AccountFiserv(AccountAbstract):
                 self._transactions.status != "pending"]
 
             self._nb_transactions = self._transactions.shape[0]
-            self._transactions.loc[:, "date"] = pd.to_datetime(
-                self._transactions["date"], format="%Y-%m-%d")
+            with warnings.catch_warnings():
+                # Not sure why the other copy in place do not raise the 
+                # Setting values in-place is fine, ignore the warning in Pandas >= 1.5.0
+                # This can be removed, if Pandas 1.5.0 does not need to be supported any longer.
+                # See also: https://stackoverflow.com/q/74057367/859591
+                warnings.filterwarnings(
+                    "ignore",
+                    category=FutureWarning,
+                    message=(
+                        ".*will attempt to set the values inplace instead of always setting a new array. "
+                        "To retain the old behavior, use either.*"
+                    ),
+                )
+                self._transactions.loc[:, "date"] = pd.to_datetime(
+                    self._transactions["date"], format="%Y-%m-%d")
             self._transactions = self._transactions.sort_values(
                 by=["date", "id"], ascending=[True, True])
+            self._transactions.loc[:, "amount"] = self._transactions.loc[:, "amount"]
 
             self._transactions.loc[:, "amount_collected"] = 0
             self._transactions.loc[:, "amount_collected"] = (
                     self._transactions["amount"].cumsum())
-            starting_amount = self._current_balance + self._transactions[
+            starting_amount = self._current_balance - self._transactions[
                 "amount"].sum()
             self._transactions.loc[:, "balance"] = (
-                -self._transactions["amount_collected"] + starting_amount)
+                self._transactions["amount_collected"] + starting_amount)
+            print('done')
+                
 
 
 class ReportFiserv:
@@ -294,7 +312,11 @@ class ReportFiserv:
         self._nb_accounts = 0  # the number of accounts in the report
         self._nb_accounts_rep = 0 # the number of nodes "account" in the report some might be invalid
         self._nb_transactions = {}
+        self._min_date = None  # the minimum date accross accounts
+        self._max_date = None  # the maximum date accross accounts
+        self._dfs = None  # the merged transactions
         self._create_accts()
+        self._merge_accts()  # creates a single view of the accounts
 
     def _create_accts(self) -> None:
         """Creates account object based on the payload.
@@ -364,3 +386,28 @@ class ReportFiserv:
             the total number of transactions accross all accounts.
         """
         return self._nb_transactions_tot
+
+    def _merge_accts(self) -> None:
+        """Merges the different tables into a single view.
+        """
+        self._dfs = [
+            self._get_trans_table(x) for x in self._accts]
+        self._min_date = np.min(
+            [x.oldest_balance_date for x in self._accts
+                if x.oldest_balance_date is not None])
+        self._max_date = np.max(
+            [x.most_recent_balance_date for x in self._accts
+                if x.most_recent_balance_date is not None])
+
+        self._dfs = pd.concat(self._dfs)
+        self._dfs = self._dfs.sort_values(
+            by=["date", "account_number"]).reset_index(drop=True).rename(
+                columns={"balance": "balance_acct"})
+
+        self._dfs.loc[:, "out"] = (
+            self._dfs["amount"] > 0).astype("int64")
+        #self._categorise_transactions()
+        self._daily_bals = [
+            self._get_end_of_day(acc) for acc in self._accts]
+        self._df_daily = pd.concat(self._daily_bals).groupby(by="date")[
+            "balance"].sum().to_frame().reset_index()
