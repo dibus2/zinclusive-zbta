@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta, datetime
 import warnings
 import numpy as np
 from typing import Dict, List
@@ -296,7 +297,6 @@ class AccountFiserv(AccountAbstract):
                 "amount"].sum()
             self._transactions.loc[:, "balance"] = (
                 self._transactions["amount_collected"] + starting_amount)
-            print('done')
                 
 
 
@@ -405,9 +405,93 @@ class ReportFiserv:
                 columns={"balance": "balance_acct"})
 
         self._dfs.loc[:, "out"] = (
-            self._dfs["amount"] > 0).astype("int64")
+            self._dfs["amount"] < 0).astype("int64")
         #self._categorise_transactions()
         self._daily_bals = [
             self._get_end_of_day(acc) for acc in self._accts]
         self._df_daily = pd.concat(self._daily_bals).groupby(by="date")[
             "balance"].sum().to_frame().reset_index()
+
+    def _get_end_of_day(self, account):
+        """
+        Get balance at the end of the day
+
+        Parameters
+        -------------
+
+        account: AccountAbstract
+            AccountAbstract object
+        """
+
+        df = account.transactions
+
+        dateloopvar = account.oldest_balance_date
+        ndays = int((account.most_recent_balance_date
+                     - account.oldest_balance_date).days)+1
+
+        #  Make sure all dates are included between min and max date
+        if df.shape[0] == 0:
+            list_balances = [account.current_balance]*ndays
+            list_dates = [dateloopvar + timedelta(days=idays)
+                          for idays in range(0, ndays)]
+            return pd.DataFrame(
+                {"date": list_dates, "balance": list_balances})
+            # return pd.DataFrame(columns=["date", "balance"])
+
+        list_dates = [0.]*ndays
+        list_balances = [0.]*ndays
+        Ncases = 0
+
+        df_endofday = df.loc[
+            :, ["date", "balance"]].groupby(by="date").last().reset_index(
+        ).sort_values(by="date")
+
+        df = df.sort_values(by="date", ascending=True)
+
+        day_bal = df["balance"].iloc[0] - df["amount"].iloc[0]
+        counter_orig = 0
+        Ncases = 0
+        while(dateloopvar <= account.most_recent_balance_date):
+            condition = dateloopvar == df_endofday["date"].values[counter_orig]
+
+            if condition:
+                day_bal = df_endofday["balance"].values[counter_orig]
+                if counter_orig < df_endofday.shape[0]-1:
+                    counter_orig += 1
+            elif day_bal is not None:
+                list_dates[Ncases] = dateloopvar
+                list_balances[Ncases] = day_bal
+                Ncases += 1
+
+            dateloopvar += timedelta(days=1)
+
+        df_endofday = pd.concat(
+            [
+                df_endofday,
+                pd.DataFrame(
+                    {"date": list_dates[:Ncases],
+                     "balance": list_balances[:Ncases]}
+                )
+            ],
+            ignore_index=True
+        ).sort_values(by="date")
+
+        return df_endofday
+
+    def _get_trans_table(self, account):
+        """
+        Return transaction table from an account and add account_number.
+
+        Parameters
+        ------------
+
+        account: AccontAbstrct object
+            account object
+        """
+        transtable = account.transactions
+        if transtable.shape[0] > 0:
+            transtable.loc[:, "account_number"] = account.account_number
+        else:
+            transtable["account_number"] = None
+
+        return transtable

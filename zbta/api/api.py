@@ -85,7 +85,19 @@ class APIConnector:
 
 
 if __name__ == "__main__":
+    import cProfile
+    import pstats
+    import io
+
     with open("zbta/data/fiserv/415060515_AllData_single_file_nopii.json", "r", encoding="utf8") as hh:
         payl = hh.read()
-    con = APIConnector(payload=payl)
-    con.process_payload()
+
+    with cProfile.Profile() as pr:
+        con = APIConnector(payload=payl)
+        con.process_payload()
+        sortby = pstats.SortKey.CUMULATIVE
+        s = io.StringIO()
+        ps = pstats.Stats(pr).strip_dirs().sort_stats(sortby).sort_stats(-1)
+        ps.print_stats()
+
+        print("profiling done.")

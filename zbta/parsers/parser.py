@@ -2,8 +2,8 @@ from typing import Dict
 from zbta.parsers import __VALID_PARSERS__, __MAPPING_VALID_PARSERS__
 from zbta.parsers.fiserv import ReportFiserv
 import logging
-from zbta.core.common import APIError
 import importlib
+from zbta.core.common import APIError
 
 logger = logging.getLogger(__name__)
 fh = logging.StreamHandler()
