@@ -161,6 +161,55 @@ class AccountAbstract:
     def days_span(self):
         return self._days_span
 
+    def _standardize_transactions(self) -> None:
+        if any([el not in self._transactions.columns
+                for el in self._transactions_columns_reqs]):
+            logger.error(
+                "Missing required column in the transaction data frame: `{}`"
+                .format(self._transactions_columns_reqs))
+            raise ValueError(
+                "Missing required column in the transaction data frame: `{}`"
+                .format(self._transactions_columns_reqs))
+        # reset the index
+        self._transactions.index = pd.RangeIndex(self._nb_transactions)
+        # turn dates into pandas datetime objects
+        self._transactions.date = pd.to_datetime(self._transactions.date)
+        # convert amount and balance to float
+        self._transactions.loc[
+            :, ['amount', 'balance']] = self._transactions.loc[
+            :, ['amount', 'balance']].astype(float)
+        # convert description and status to str
+        self._transactions.loc[
+            :, ['description', 'status']] = self._transactions.loc[
+            :, ['description', 'status']].astype(str)
+
+        # Get common data from transaction table
+        if self._transactions.shape[0] > 0:
+            self._oldest_transaction_date = self._transactions["date"].min()
+            self._most_recent_transaction_date = self._transactions["date"].max(
+            )
+            self._nb_inc_transactions = (
+                self._transactions["amount"] > 0).sum()
+            self._nb_out_transactions = (
+                self._transactions["amount"] < 0).sum()
+            self._nb_overdrafts = (
+                self._transactions["balance"] < 0).sum()
+            self._days_span = (self._transactions["date"].max()
+                            - self._transactions["date"].min()).days
+
+    def _standardize_pii(self):
+        for idx, city in enumerate(self._cities):
+            self._cities[idx] = city.lower()
+
+        for idx, name in enumerate(self._owners_names):
+            self._owners_names[idx] = name.lower()
+
+        for idx, email in enumerate(self._email_addresses):
+            self._email_addresses[idx] = email.lower()
+
+        for idx, street in enumerate(self._streets):
+            self._streets[idx] = street.lower()
+
 
 class AccountFiserv(AccountAbstract):
     """Represents an account found in a FISERV report.
@@ -175,6 +224,8 @@ class AccountFiserv(AccountAbstract):
         self._extract_curr_balance()
         self._owners_info()
         self._extract_transactions()
+        self._standardize_transactions()  # from abstract class
+        self._standardize_pii()  # from abstract class
 
     def _validate_schema(self) -> None:
         is_valid, error_message = validate_schema(
@@ -231,6 +282,8 @@ class AccountFiserv(AccountAbstract):
         self._transactions = self._transactions.rename(
             columns={"Category": "category"})
 
+        self._transactions.drop('CurAmt', axis=1, inplace=True)
+
         self._nb_transactions = self._transactions.shape[0]
 
     def _compute_oldest_newest_dates(self):
@@ -272,7 +325,7 @@ class AccountFiserv(AccountAbstract):
 
             self._nb_transactions = self._transactions.shape[0]
             with warnings.catch_warnings():
-                # Not sure why the other copy in place do not raise the 
+                # Not sure why the other copy in place do not raise the
                 # Setting values in-place is fine, ignore the warning in Pandas >= 1.5.0
                 # This can be removed, if Pandas 1.5.0 does not need to be supported any longer.
                 # See also: https://stackoverflow.com/q/74057367/859591
@@ -288,16 +341,16 @@ class AccountFiserv(AccountAbstract):
                     self._transactions["date"], format="%Y-%m-%d")
             self._transactions = self._transactions.sort_values(
                 by=["date", "id"], ascending=[True, True])
-            self._transactions.loc[:, "amount"] = self._transactions.loc[:, "amount"]
+            self._transactions.loc[:,
+                                   "amount"] = self._transactions.loc[:, "amount"]
 
             self._transactions.loc[:, "amount_collected"] = 0
             self._transactions.loc[:, "amount_collected"] = (
-                    self._transactions["amount"].cumsum())
+                self._transactions["amount"].cumsum())
             starting_amount = self._current_balance - self._transactions[
                 "amount"].sum()
             self._transactions.loc[:, "balance"] = (
                 self._transactions["amount_collected"] + starting_amount)
-                
 
 
 class ReportFiserv:
@@ -310,7 +363,8 @@ class ReportFiserv:
         self._accts = []  # the accounts objects
         self._payload = payload  # the json payload
         self._nb_accounts = 0  # the number of accounts in the report
-        self._nb_accounts_rep = 0 # the number of nodes "account" in the report some might be invalid
+        # the number of nodes "account" in the report some might be invalid
+        self._nb_accounts_rep = 0
         self._nb_transactions = {}
         self._min_date = None  # the minimum date accross accounts
         self._max_date = None  # the maximum date accross accounts
@@ -329,14 +383,16 @@ class ReportFiserv:
                     self._accts.append(_acc)
                     self._nb_transactions[icc] = self._accts[-1].nb_transactions
         if len(self._accts) != self._nb_accounts:
-            logging.debug("some accounts were ignored because invalid type or no transactions found.")
+            logging.debug(
+                "some accounts were ignored because invalid type or no transactions found.")
         self._nb_accounts = len(self._accts)
         self._nb_transactions_tot = sum(
             [el for el in list(self._nb_transactions.values()) if el is not None
              ]
         )
         if self._nb_accounts == 0:
-            raise NoValidAccountError("No valid account found to calculate attributes")
+            raise NoValidAccountError(
+                "No valid account found to calculate attributes")
 
         if self._nb_transactions_tot == 0:
             raise NoTransactionError("No transaction Found.")
@@ -387,6 +443,14 @@ class ReportFiserv:
         """
         return self._nb_transactions_tot
 
+    @property
+    def dfs(self) -> pd.DataFrame:
+        return self._dfs
+
+    @property
+    def dfs_daily(self) -> pd.DataFrame:
+        return self._df_daily
+
     def _merge_accts(self) -> None:
         """Merges the different tables into a single view.
         """
@@ -406,7 +470,7 @@ class ReportFiserv:
 
         self._dfs.loc[:, "out"] = (
             self._dfs["amount"] < 0).astype("int64")
-        #self._categorise_transactions()
+        # self._categorise_transactions()
         self._daily_bals = [
             self._get_end_of_day(acc) for acc in self._accts]
         self._df_daily = pd.concat(self._daily_bals).groupby(by="date")[
@@ -451,7 +515,7 @@ class ReportFiserv:
         day_bal = df["balance"].iloc[0] - df["amount"].iloc[0]
         counter_orig = 0
         Ncases = 0
-        while(dateloopvar <= account.most_recent_balance_date):
+        while (dateloopvar <= account.most_recent_balance_date):
             condition = dateloopvar == df_endofday["date"].values[counter_orig]
 
             if condition:

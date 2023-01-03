@@ -5,6 +5,9 @@ from typing import Dict
 from zbta.core.schemas import __API_SCHEMA__
 from zbta.core.common import validate_schema, APIError
 from zbta.parsers.parser import Parser
+from zbta.btanalyzer.btanalyzer import BTAnalyzer
+from zbta.btanalyzer.assets.categories_general_contained import __DICT_CATEGORIES_GENERAL_CONTAINED__
+from zbta.btanalyzer.assets.categories_general_match import __DICT_CATEGORIES_GENERAL_MATCH__
 import logging
 
 
@@ -43,8 +46,18 @@ class APIConnector:
     def __init__(self, payload: Dict) -> None:
         self._payload = payload
         self._response = None
+        self._parser = None
+        self._btanalyzer = None
         logger.info("APIConnector instance created")
         self._validate_payload()
+
+    @property
+    def parser(self) -> Parser:
+        return self._parser
+
+    @property
+    def btanalyzer(self) -> BTAnalyzer:
+        return self._btanalyzer
 
     def _validate_payload(self) -> None:
         logger.debug("validating payload...")
@@ -76,12 +89,36 @@ class APIConnector:
             return self._response
         else:
             # 1. create the parser object
-            parser = Parser(self._payload["request"])
+            self._parser = Parser(self._payload["request"])
             # 2. parse
-            parser.parse()
-            # 3. generate triggers
+            self._parser.parse()
+            # 3. BT Analyser
+            self._btanalyzer = BTAnalyzer(
+                report=self._parser.report,
+                dict_kw_id_match=__DICT_CATEGORIES_GENERAL_MATCH__,
+                dict_kw_id_contained=__DICT_CATEGORIES_GENERAL_CONTAINED__,
+                limit_kw_id_match=[
+                    "is_payday",
+                    "is_salary",
+                    "is_fee",
+                    "is_cash",
+                ],
+                limit_kw_id_contained=[
+                    "is_obligation",
+                    "is_benefit",
+                    "is_payday",
+                    "is_salary",
+                    "is_fee",
+                    "is_cash",
+                ],
+                do_nweek_nmonth_id=True,
+                do_weekend_id=True
+            )
+            # 4. generate triggers
             print("HERE")
-            # 4. generate attributes
+            # 5. generate attributes
+
+
 
 
 if __name__ == "__main__":
@@ -98,6 +135,6 @@ if __name__ == "__main__":
         sortby = pstats.SortKey.CUMULATIVE
         s = io.StringIO()
         ps = pstats.Stats(pr).strip_dirs().sort_stats(sortby).sort_stats(-1)
-        ps.print_stats()
+        #ps.print_stats()
 
         print("profiling done.")
