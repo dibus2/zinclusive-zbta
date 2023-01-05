@@ -380,6 +380,7 @@ class ReportFiserv:
             if acc['accountinfo']['FIAcctInfo']['FIAcctId']['AcctType'] not in self.__INVALID_ACCT_TYPE__:
                 _acc = self._acct_ins(acc)
                 if _acc.nb_transactions != 0:
+                    _acc._account_number = icc
                     self._accts.append(_acc)
                     self._nb_transactions[icc] = self._accts[-1].nb_transactions
         if len(self._accts) != self._nb_accounts:

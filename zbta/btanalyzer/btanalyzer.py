@@ -1,8 +1,9 @@
 from zbta.parsers.fiserv import ReportFiserv
+from zbta.btanalyzer.internal_transfer_algo import InternalTransferTagger
 from zbta.btanalyzer.assets.us_states import __DICT_STATES_US__
 from zbta.btanalyzer.assets.categories_general_match import __DICT_CATEGORIES_GENERAL_MATCH__
 from zbta.btanalyzer.assets.categories_general_contained import __DICT_CATEGORIES_GENERAL_CONTAINED__
-from typing import Dict, List, Union
+from typing import Tuple, Dict, List, Union, Optional
 import pandas as pd
 import numpy as np
 from datetime import timedelta
@@ -44,7 +45,9 @@ class BTAnalyzer:
         # whether or not to identify week days vs weekend transactions.
         do_weekend_id: bool = True,
         # whether or not to calculate the number of weeks since pull
-        do_nweek_nmonth_id: bool = True
+        do_nweek_nmonth_id: bool = True,
+        # tag internal transfers
+        do_internal_transfers: bool = True
     ) -> None:
         self._report = report
         self._dfs = self._report.dfs
@@ -56,6 +59,7 @@ class BTAnalyzer:
         self._dict_us_states_cu = dict_us_states_cu
         self._do_weekend_id = do_weekend_id
         self._do_nweek_nmonth_id = do_nweek_nmonth_id
+        self._do_internal_transfers = do_internal_transfers
         self._list_acc_types = []  # the types of the accts
         self._names = []
         self._streets = []
@@ -75,6 +79,8 @@ class BTAnalyzer:
         self._count_inc_out_over()
         self._validate_transactions()
         self._consolidate_kycs()
+        if do_internal_transfers:
+            self._tag_internal_transfers()
 
     @property
     def dfs(self) -> pd.DataFrame:
@@ -141,6 +147,8 @@ class BTAnalyzer:
         # filter out the category to match
         if self._limit_kw_id_match != "none":
             if self._limit_kw_id_match != []:
+                if 'is_transfer' not in self._limit_kw_id_match and self._do_internal_transfers:
+                    self._limit_kw_id_match.append('is_transfer')
                 self._dict_kw_id_match = {key: val for key, val in self._dict_kw_id_match.items(
                 ) if key in self._limit_kw_id_match}
 
@@ -163,6 +171,8 @@ class BTAnalyzer:
 
         if self._limit_kw_id_contained != "none":
             if self._limit_kw_id_contained != []:
+                if 'is_transfer' not in self._limit_kw_id_contained and self._do_internal_transfers:
+                    self._limit_kw_id_contained.append('is_transfer')
                 self._dict_kw_id_contained = {key: val for key, val in self._dict_kw_id_contained.items(
                 ) if key in self._limit_kw_id_contained}
 
@@ -442,3 +452,8 @@ class BTAnalyzer:
 
         return temporal_mask & amount_mask & cashflow_mask & category_mask \
             & external_mask
+
+    def _tag_internal_transfers(self) -> None:
+       tagger = InternalTransferTagger(self._dfs)
+       tagger.tag_internal_transfers()
+       self._dfs = tagger.dfs
