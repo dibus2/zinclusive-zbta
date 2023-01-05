@@ -98,7 +98,6 @@ class APIConnector:
                 dict_kw_id_match=__DICT_CATEGORIES_GENERAL_MATCH__,
                 dict_kw_id_contained=__DICT_CATEGORIES_GENERAL_CONTAINED__,
                 limit_kw_id_match=[
-                    "is_payday",
                     "is_salary",
                     "is_fee",
                     "is_cash",
@@ -106,10 +105,11 @@ class APIConnector:
                 limit_kw_id_contained=[
                     "is_obligation",
                     "is_benefit",
-                    "is_payday",
                     "is_salary",
                     "is_fee",
                     "is_cash",
+                    "is_payday",
+                    "is_consumer_loan"
                 ],
                 do_nweek_nmonth_id=True,
                 do_weekend_id=True

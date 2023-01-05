@@ -46,8 +46,8 @@ class AccountAbstract:
         self._oldest_transaction_date = None
         self._most_recent_balance_date = None
         self._oldest_balance_date = None
-        self._nb_inc_transactions = None
-        self._nb_out_transactions = None
+        self._nb_inc_trans = None
+        self._nb_out_trans = None
         self._nb_overdrafts = None
         self._current_balance = None
         self._transactions = None
@@ -138,12 +138,12 @@ class AccountAbstract:
         return self._oldest_balance_date
 
     @property
-    def nb_inc_transactions(self):
-        return self._nb_inc_transactions
+    def nb_inc_trans(self):
+        return self._nb_inc_trans
 
     @property
-    def nb_out_transactions(self):
-        return self._nb_out_transactions
+    def nb_out_trans(self):
+        return self._nb_out_trans
 
     @property
     def nb_overdrafts(self):
@@ -188,9 +188,9 @@ class AccountAbstract:
             self._oldest_transaction_date = self._transactions["date"].min()
             self._most_recent_transaction_date = self._transactions["date"].max(
             )
-            self._nb_inc_transactions = (
+            self._nb_inc_trans = (
                 self._transactions["amount"] > 0).sum()
-            self._nb_out_transactions = (
+            self._nb_out_trans = (
                 self._transactions["amount"] < 0).sum()
             self._nb_overdrafts = (
                 self._transactions["balance"] < 0).sum()
@@ -443,6 +443,23 @@ class ReportFiserv:
         """
         return self._nb_transactions_tot
 
+    @property 
+    def max_date(self) -> pd.Timestamp:
+        """Gets the latest date in the transaction table accross all accounts.
+
+        Returns:
+            pd.Timestamp: the date of the latest transaction.
+        """
+        return self._max_date
+    
+    @property 
+    def min_date(self) -> pd.Timestamp:
+        """Gets the first date in the transaction table accross all accounts.
+
+        Returns:
+            pd.Timestamp: the date of the first transaction.
+        """
+        return self._min_date
     @property
     def dfs(self) -> pd.DataFrame:
         return self._dfs
