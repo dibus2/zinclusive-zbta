@@ -42,6 +42,7 @@ class BTAnalyzer:
         limit_kw_id_match: Union[List, str] = [],
         # use all categories [] or none "none"
         limit_kw_id_contained: Union[List, str] = [],
+        # dictionary for cleaning up states
         dict_us_states_cu: Dict = __DICT_STATES_US__,
         # dictionary for salary like clean up 
         dict_salary_like_fp: Dict = __DICT_EXCLUSIONS_SALARY_LIKE_FP__,
