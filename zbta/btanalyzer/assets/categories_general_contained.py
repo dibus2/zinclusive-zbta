@@ -45,7 +45,7 @@ __DICT_CATEGORIES_GENERAL_CONTAINED__ = {
     "is_benefit": [
         "benef",
         "income life",
-        "child support"
+        "child support",
     ],
     "is_fee": [
         "fee",

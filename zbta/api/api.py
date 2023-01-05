@@ -99,6 +99,7 @@ class APIConnector:
                 dict_kw_id_contained=__DICT_CATEGORIES_GENERAL_CONTAINED__,
                 limit_kw_id_match=[
                     "is_salary",
+                    "is_benefit",
                     "is_fee",
                     "is_cash",
                 ],

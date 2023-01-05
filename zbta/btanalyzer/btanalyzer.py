@@ -1,12 +1,13 @@
 from zbta.parsers.fiserv import ReportFiserv
+from zbta.btanalyzer.salary_like_tagger import SalaryLikeTagger
 from zbta.btanalyzer.internal_transfer_algo import InternalTransferTagger
 from zbta.btanalyzer.assets.us_states import __DICT_STATES_US__
 from zbta.btanalyzer.assets.categories_general_match import __DICT_CATEGORIES_GENERAL_MATCH__
 from zbta.btanalyzer.assets.categories_general_contained import __DICT_CATEGORIES_GENERAL_CONTAINED__
-from typing import Tuple, Dict, List, Union, Optional
+from zbta.btanalyzer.assets.categories_salary_like_fp import __DICT_EXCLUSIONS_SALARY_LIKE_FP__
+from typing import Dict, List, Union, Optional
 import pandas as pd
 import numpy as np
-from datetime import timedelta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -42,24 +43,30 @@ class BTAnalyzer:
         # use all categories [] or none "none"
         limit_kw_id_contained: Union[List, str] = [],
         dict_us_states_cu: Dict = __DICT_STATES_US__,
+        # dictionary for salary like clean up 
+        dict_salary_like_fp: Dict = __DICT_EXCLUSIONS_SALARY_LIKE_FP__,
         # whether or not to identify week days vs weekend transactions.
         do_weekend_id: bool = True,
         # whether or not to calculate the number of weeks since pull
         do_nweek_nmonth_id: bool = True,
         # tag internal transfers
-        do_internal_transfers: bool = True
+        do_internal_transfers: bool = True,
+        # do salary_like
+        do_salary_like: bool = True
     ) -> None:
         self._report = report
         self._dfs = self._report.dfs
         self._dfs_daily = self._report.dfs_daily
         self._dict_kw_id_match = dict_kw_id_match
         self._dict_kw_id_contained = dict_kw_id_contained
+        self._dict_salary_like_fp = dict_salary_like_fp
         self._limit_kw_id_match = limit_kw_id_match
         self._limit_kw_id_contained = limit_kw_id_contained
         self._dict_us_states_cu = dict_us_states_cu
         self._do_weekend_id = do_weekend_id
         self._do_nweek_nmonth_id = do_nweek_nmonth_id
         self._do_internal_transfers = do_internal_transfers
+        self._do_salary_like = do_salary_like
         self._list_acc_types = []  # the types of the accts
         self._names = []
         self._streets = []
@@ -79,8 +86,10 @@ class BTAnalyzer:
         self._count_inc_out_over()
         self._validate_transactions()
         self._consolidate_kycs()
-        if do_internal_transfers:
+        if self._do_internal_transfers:
             self._tag_internal_transfers()
+        if self._do_salary_like:
+            self._tag_salary_like()
 
     @property
     def dfs(self) -> pd.DataFrame:
@@ -149,6 +158,10 @@ class BTAnalyzer:
             if self._limit_kw_id_match != []:
                 if 'is_transfer' not in self._limit_kw_id_match and self._do_internal_transfers:
                     self._limit_kw_id_match.append('is_transfer')
+                if 'is_investment' not in self._limit_kw_id_match and self._do_salary_like:
+                    self._limit_kw_id_match.append('is_investment')
+                if 'is_taxes' not in self._limit_kw_id_match and self._do_salary_like:
+                    self._limit_kw_id_match.append('is_taxes')
                 self._dict_kw_id_match = {key: val for key, val in self._dict_kw_id_match.items(
                 ) if key in self._limit_kw_id_match}
 
@@ -168,11 +181,14 @@ class BTAnalyzer:
 
                     self._dfs[category] = \
                         self._dfs[category] | keyword_in_description
-
         if self._limit_kw_id_contained != "none":
             if self._limit_kw_id_contained != []:
                 if 'is_transfer' not in self._limit_kw_id_contained and self._do_internal_transfers:
                     self._limit_kw_id_contained.append('is_transfer')
+                if 'is_investment' not in self._limit_kw_id_contained and self._do_salary_like:
+                    self._limit_kw_id_contained.append('is_investment')
+                if 'is_taxes' not in self._limit_kw_id_contained and self._do_salary_like:
+                    self._limit_kw_id_contained.append('is_taxes')
                 self._dict_kw_id_contained = {key: val for key, val in self._dict_kw_id_contained.items(
                 ) if key in self._limit_kw_id_contained}
 
@@ -196,9 +212,9 @@ class BTAnalyzer:
             self._dfs.loc[
                 self._dfs.amount < 0, "is_salary"] = False
 
-        # if "is_salary_like" in self._dfs.columns.tolist():
-        #    self._dfs.loc[
-        #        self._dfs.amount < 0, "is_salary_like"] = False
+        if "is_salary_like" in self._dfs.columns.tolist():
+            self._dfs.loc[
+                self._dfs.amount < 0, "is_salary_like"] = False
 
         # Weekdays vs weekends
         if self._do_weekend_id:
@@ -278,31 +294,6 @@ class BTAnalyzer:
                 state = state.replace(" ", "")
                 self._states = self._add_prop(state, self._states)
 
-    def _get_last_date(
-        self,
-        last_date: str
-    ) -> pd.Timestamp:
-        """
-        Get the timestamp of the last balance/transaction to be considered.
-
-        Parameters
-        ----------
-        last_date : str
-            data cutoff for the transactions dataset, if "last date", the 
-            date from the last balance or transaction in the history is used
-
-        Returns
-        -------
-        pd.Timestamp
-            timestamp of the last transaction to be considered
-        """
-        if last_date == "last_date":
-            logger.debug("Warning: taking last date available")
-            return self._report.max_date
-        elif type(last_date) is pd.Timestamp:
-            return last_date
-        else:
-            return pd.to_datetime(last_date, format="%Y-%m-%d")
 
     # TODO this is not being extracted at the moment not present in Fiserv
     # def _fill_out_acc_types(self):
@@ -367,93 +358,16 @@ class BTAnalyzer:
                 self._nb_of_overdrafts_trans, check_nb_overdrafts_trans
             ))
 
-    def _limit_transaction_dataset(
-        self,
-        last_date: pd.Timestamp,
-        ndays: int,
-        amt_thr: float,
-        is_inc: bool = False,
-        is_out: bool = False,
-        remove_internal: bool = False,
-        categories: List[str] = []
-    ) -> pd.Series:
-        """
-        Trim the dataset to the relevant transaction window.
-
-        Restricts the dataset to the last N days with transactions higher
-        than the selected threshold, that can be Incoming, Outgoing or both,
-        and withing given categories.
-
-        Parameters
-        ----------
-        last_date : pd.Timestamp
-            date cutoff for the transactions dataset
-        ndays : int
-            days previous to the last date cutoff to consider
-        amt_thr : float
-            minimum amount (in absolute terms) to consider a transaction
-        is_inc : bool, optional
-            consider only incoming transactions, by default False
-        is_out : bool, optional
-            consider only outgoing transactions, by default False
-        remove_internal : bool, optional
-            consider only external transactions, by default False
-        categories : List[str], optional
-            list of categories to be considered, by default ""
-
-        Returns
-        -------
-        pd.Series
-            a pd series containing booleans that mask the non-relevant
-            transactions according to the conditions imposed
-        """
-        dataset = self.dfs
-        last_date = self._get_last_date(last_date)
-        first_date = last_date - timedelta(days=ndays)
-
-        temporal_mask = (dataset.date >= first_date) & (
-            dataset.date <= last_date)
-        amount_mask = dataset.amount.abs() > amt_thr
-
-        cashflow_mask = pd.Series(
-            np.ones(len(dataset)),
-            index=dataset.index,
-            dtype=bool
-        )
-
-        if is_inc:
-            cashflow_mask = cashflow_mask & (dataset.amount > 0)
-        if is_out:
-            cashflow_mask = cashflow_mask & (dataset.amount < 0)
-
-        if len(categories) >= 1:
-            category_mask = pd.Series(
-                np.zeros(len(dataset)),
-                index=dataset.index,
-                dtype=bool
-            )
-            for category in categories:
-                category_mask = category_mask | dataset[category]
-
-        else:
-            category_mask = pd.Series(
-                np.ones(len(dataset)),
-                index=dataset.index,
-                dtype=bool
-            )
-
-        external_mask = pd.Series(
-            np.ones(len(dataset)),
-            index=dataset.index,
-            dtype=bool
-        )
-        if remove_internal:
-            external_mask = external_mask & ~dataset["is_internal"]
-
-        return temporal_mask & amount_mask & cashflow_mask & category_mask \
-            & external_mask
-
     def _tag_internal_transfers(self) -> None:
        tagger = InternalTransferTagger(self._dfs)
        tagger.tag_internal_transfers()
        self._dfs = tagger.dfs
+
+    def _tag_salary_like(self) -> None:
+        tagger = SalaryLikeTagger(
+            self._dfs,
+            self._report.max_date,
+            self._dict_salary_like_fp
+        )
+        tagger.tag_income_transactions()
+        self._dfs = tagger.dfs
