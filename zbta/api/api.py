@@ -113,7 +113,10 @@ class APIConnector:
                     "is_consumer_loan"
                 ],
                 do_nweek_nmonth_id=True,
-                do_weekend_id=True
+                do_weekend_id=True,
+                do_enforce_priorities=False, 
+                do_salary_like=True,
+                do_internal_transfers=True
             )
             # 4. generate triggers
             print("HERE")

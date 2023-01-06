@@ -5,6 +5,7 @@ from zbta.btanalyzer.assets.us_states import __DICT_STATES_US__
 from zbta.btanalyzer.assets.categories_general_match import __DICT_CATEGORIES_GENERAL_MATCH__
 from zbta.btanalyzer.assets.categories_general_contained import __DICT_CATEGORIES_GENERAL_CONTAINED__
 from zbta.btanalyzer.assets.categories_salary_like_fp import __DICT_EXCLUSIONS_SALARY_LIKE_FP__
+from zbta.btanalyzer.assets.categories_priorities import __DICT_CATEGORIES_PRIORITIES__
 from typing import Dict, List, Union, Optional
 import pandas as pd
 import numpy as np
@@ -46,6 +47,8 @@ class BTAnalyzer:
         dict_us_states_cu: Dict = __DICT_STATES_US__,
         # dictionary for salary like clean up 
         dict_salary_like_fp: Dict = __DICT_EXCLUSIONS_SALARY_LIKE_FP__,
+        # dictionary of priorities for the categories
+        dict_enforce_priorities: Dict = __DICT_CATEGORIES_PRIORITIES__,
         # whether or not to identify week days vs weekend transactions.
         do_weekend_id: bool = True,
         # whether or not to calculate the number of weeks since pull
@@ -53,7 +56,9 @@ class BTAnalyzer:
         # tag internal transfers
         do_internal_transfers: bool = True,
         # do salary_like
-        do_salary_like: bool = True
+        do_salary_like: bool = True,
+        # enforce priorities on categories
+        do_enforce_priorities: bool = True
     ) -> None:
         self._report = report
         self._dfs = self._report.dfs
@@ -61,12 +66,14 @@ class BTAnalyzer:
         self._dict_kw_id_match = dict_kw_id_match
         self._dict_kw_id_contained = dict_kw_id_contained
         self._dict_salary_like_fp = dict_salary_like_fp
+        self._dict_enforce_priorities = dict_enforce_priorities
         self._limit_kw_id_match = limit_kw_id_match
         self._limit_kw_id_contained = limit_kw_id_contained
         self._dict_us_states_cu = dict_us_states_cu
         self._do_weekend_id = do_weekend_id
         self._do_nweek_nmonth_id = do_nweek_nmonth_id
         self._do_internal_transfers = do_internal_transfers
+        self._do_enforce_priorities = do_enforce_priorities
         self._do_salary_like = do_salary_like
         self._list_acc_types = []  # the types of the accts
         self._names = []
@@ -91,6 +98,8 @@ class BTAnalyzer:
             self._tag_internal_transfers()
         if self._do_salary_like:
             self._tag_salary_like()
+        if self._do_enforce_priorities:
+            self._enforce_priorities()
 
     @property
     def dfs(self) -> pd.DataFrame:
@@ -372,3 +381,14 @@ class BTAnalyzer:
         )
         tagger.tag_income_transactions()
         self._dfs = tagger.dfs
+
+    def _enforce_priorities(self) -> None:
+        """In some cases multiple categories are exclusive 
+        and priority must be enforced.
+        """
+        for excluded_category in self._dict_enforce_priorities:
+            for priority_category in self._dict_enforce_priorities[excluded_category]:
+                self._dfs.loc[
+                    self._dfs[priority_category],
+                    excluded_category
+                ] = False
