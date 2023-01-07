@@ -1,4 +1,6 @@
 import json
+import time
+from zbta.attributes.attributes import ZBTAGeneral
 import jsonschema
 from zbta.core.status import Statuses
 from typing import Dict
@@ -59,6 +61,10 @@ class APIConnector:
     def btanalyzer(self) -> BTAnalyzer:
         return self._btanalyzer
 
+    @property
+    def engine(self) -> ZBTAGeneral:
+        return self._engine
+
     def _validate_payload(self) -> None:
         logger.debug("validating payload...")
         try:
@@ -89,10 +95,14 @@ class APIConnector:
             return self._response
         else:
             # 1. create the parser object
+            init = time.time()
+            st = time.time()
             self._parser = Parser(self._payload["request"])
             # 2. parse
             self._parser.parse()
+            logger.debug(f"time to parse the report `{time.time() -st }`")
             # 3. BT Analyser
+            st = time.time()
             self._btanalyzer = BTAnalyzer(
                 report=self._parser.report,
                 dict_kw_id_match=__DICT_CATEGORIES_GENERAL_MATCH__,
@@ -118,8 +128,16 @@ class APIConnector:
                 do_salary_like=True,
                 do_internal_transfers=True
             )
+            logger.debug(f"time to analyzer transactions: `{time.time() - st}`")
             # 4. generate triggers
-            print("HERE")
+            # TEMP calculate all attributes for now.
+            self._engine = ZBTAGeneral(
+                btanalyzer=self._btanalyzer
+            )
+            st = time.time()
+            self._engine.calculate_attributes()
+            logger.debug(f"time to calculate the attributes: `{time.time() - st}`")
+            logger.debug(f"time total `{time.time() - init}`")
             # 5. generate attributes
 
 
