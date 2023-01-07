@@ -11,7 +11,7 @@ fh_formatter = logging.Formatter(
     "[%(levelname)s] [%(asctime)s] [%(funcName)s] %(message)s")
 fh.setFormatter(fh_formatter)
 logger.addHandler(fh)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.ERROR)
 
 class Parser:
     """Provides a single interface to parser any report.

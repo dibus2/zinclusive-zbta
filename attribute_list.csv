@@ -1,0 +1,13 @@
+Method,Attribute Name,Attribute Code,Module,Description
+__ZBTA_CORE_NbIncomingTransactionsD30__,NbIncomingTransactionsD30,CORE008,CORE,Total Number of Incoming Transaction in the last 30 days
+__ZBTA_CORE_NbIncomingTransactionsD60__,NbIncomingTransactionsD60,CORE007,CORE,Total Number of Incoming Transaction in the last 60 days
+__ZBTA_CORE_NbIncomingTransactionsD90__,NbIncomingTransactionsD90,CORE006,CORE,Total Number of Incoming Transaction in the last 90 days
+__ZBTA_CORE_NbIncomingTransactionsEver__,NbIncomingTransactionsEver,CORE005,CORE,Total Number of Incoming Transaction Ever
+__ZBTA_CORE_NbOutgoingTransactionsD30__,NbOutgoingTransactionsD30,CORE012,CORE,Total Number of Outgoing Transaction in the last 30 days
+__ZBTA_CORE_NbOutgoingTransactionsD60__,NbOutgoingTransactionsD60,CORE011,CORE,Total Number of Outgoing Transaction in the last 60 days
+__ZBTA_CORE_NbOutgoingTransactionsD90__,NbOutgoingTransactionsD90,CORE010,CORE,Total Number of Outgoing Transaction in the last 90 days
+__ZBTA_CORE_NbOutgoingTransactionsEver__,NbOutgoingTransactionsEver,CORE009,CORE,Total Number of Outgoing Transaction Ever
+__ZBTA_CORE_NbTransactionsD30__,NbTransactionsD30,CORE004,CORE,Total Number of Transaction in the last 30 days
+__ZBTA_CORE_NbTransactionsD60__,NbTransactionsD60,CORE003,CORE,Total Number of Transaction in the last 60 days
+__ZBTA_CORE_NbTransactionsD90__,NbTransactionsD90,CORE002,CORE,Total Number of Transaction in the last 90 days
+__ZBTA_CORE_NbTransactionsEver__,NbTransactionsEver,CORE001,CORE,Total Number of Transaction Ever
