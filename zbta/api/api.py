@@ -50,19 +50,41 @@ class APIConnector:
         self._response = None
         self._parser = None
         self._btanalyzer = None
+        self._engine = None
         logger.info("APIConnector instance created")
         self._validate_payload()
 
     @property
     def parser(self) -> Parser:
+        """Returns the parser object
+
+        Returns
+        -------
+        Parser
+            the parser object
+        """
         return self._parser
 
     @property
     def btanalyzer(self) -> BTAnalyzer:
+        """Returns the Analyzer object
+
+        Returns
+        -------
+        BTAnalyzer
+            the analyzer object
+        """
         return self._btanalyzer
 
     @property
     def engine(self) -> ZBTAGeneral:
+        """Returns the Engine object
+
+        Returns
+        -------
+        ZBTAGeneral
+            the engine object
+        """
         return self._engine
 
     def _validate_payload(self) -> None:
@@ -93,52 +115,50 @@ class APIConnector:
         logger.info("processing payload...")
         if self._response is not None:
             return self._response
-        else:
-            # 1. create the parser object
-            init = time.time()
-            st = time.time()
-            self._parser = Parser(self._payload["request"])
-            # 2. parse
-            self._parser.parse()
-            logger.debug(f"time to parse the report `{time.time() -st }`")
-            # 3. BT Analyser
-            st = time.time()
-            self._btanalyzer = BTAnalyzer(
-                report=self._parser.report,
-                dict_kw_id_match=__DICT_CATEGORIES_GENERAL_MATCH__,
-                dict_kw_id_contained=__DICT_CATEGORIES_GENERAL_CONTAINED__,
-                limit_kw_id_match=[
-                    "is_salary",
-                    "is_benefit",
-                    "is_fee",
-                    "is_cash",
-                ],
-                limit_kw_id_contained=[
-                    "is_obligation",
-                    "is_benefit",
-                    "is_salary",
-                    "is_fee",
-                    "is_cash",
-                    "is_payday",
-                    "is_consumer_loan"
-                ],
-                do_nweek_nmonth_id=True,
-                do_weekend_id=True,
-                do_enforce_priorities=False, 
-                do_salary_like=True,
-                do_internal_transfers=True
-            )
-            logger.debug(f"time to analyzer transactions: `{time.time() - st}`")
-            # 4. generate triggers
-            # TEMP calculate all attributes for now.
-            self._engine = ZBTAGeneral(
-                btanalyzer=self._btanalyzer
-            )
-            st = time.time()
-            self._engine.calculate_attributes()
-            logger.debug(f"time to calculate the attributes: `{time.time() - st}`")
-            logger.debug(f"time total `{time.time() - init}`")
-            # 5. generate attributes
+        # 1. create the parser object
+        init = time.time()
+        st = time.time()
+        self._parser = Parser(self._payload["request"])
+        # 2. parse
+        self._parser.parse()
+        logger.debug("time to parse the report %s", time.time() -st )
+        # 3. BT Analyser
+        st = time.time()
+        self._btanalyzer = BTAnalyzer(
+            report=self._parser.report,
+            dict_kw_id_match=__DICT_CATEGORIES_GENERAL_MATCH__,
+            dict_kw_id_contained=__DICT_CATEGORIES_GENERAL_CONTAINED__,
+            limit_kw_id_match=[
+                "is_salary",
+                "is_benefit",
+                "is_fee",
+                "is_cash",
+            ],
+            limit_kw_id_contained=[
+                "is_obligation",
+                "is_benefit",
+                "is_salary",
+                "is_fee",
+                "is_cash",
+                "is_payday",
+                "is_consumer_loan"
+            ],
+            do_nweek_nmonth_id=True,
+            do_weekend_id=True,
+            do_enforce_priorities=False, 
+            do_salary_like=True,
+            do_internal_transfers=True
+        )
+        logger.debug("time to analyzer transactions: %s", time.time() - st)
+        # 3. generate triggers
+        self._engine = ZBTAGeneral(
+            btanalyzer=self._btanalyzer
+        )
+        st = time.time()
+        self._engine.calculate_attributes()
+        logger.debug("time to calculate the attributes: %s", time.time() - st)
+        logger.debug("time total %s", time.time() - init)
+        # 4. generate attributes
 
 
 if __name__ == "__main__":
